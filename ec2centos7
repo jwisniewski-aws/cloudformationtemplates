@@ -1,0 +1,173 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "EC2 Standard CentOS 7 v1.2.0",
+  "Parameters" : {
+    "Company" : {
+      "Type" : "String",
+      "Description" : "Client company short name",
+      "Default" : "##Company|sandbox|Client company short name##"
+    },
+    "Env" : {
+      "Description" : "Environment string. EG: dev, test, production",
+      "Type" : "String",
+      "Default" : "##Env|dev|Environment##",
+      "AllowedValues" : [
+        "dev",
+        "test",
+        "production"
+      ]
+    },
+    "AssignPublicIP" : {
+      "Description" : "Assign public IP address",
+      "Type" : "String",
+      "Default" : "##AssignPublicIP|true|Assign public IP address##",
+      "AllowedValues" : [
+        "true",
+        "false"
+      ]
+    },
+    "EC2Size" : {
+      "Description" : "The EC2 instance volume size in GB",
+      "Type" : "String",
+      "MinLength" : "1",
+      "MaxLength" : "4",
+      "AllowedPattern" : "[0-9]*",
+      "ConstraintDescription" : "Integer only",
+      "Default" : "##EC2Size|100|EC2 instance volume size in GB##"
+    },
+    "EC2InstanceType" : {
+      "Description" : "EC2 server instance type",
+      "Type" : "String",
+      "Default" : "##EC2InstanceType|r4.large##",
+      "AllowedValues" : [ "t2.nano", "t2.micro", "t2.small", "t2.medium", "t2.large", "m4.large", "m4.xlarge", "m4.2xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "r4.4xlarge", "r4.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge" ],
+      "ConstraintDescription" : "Must be a valid EC2 instance type."
+    },
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type" : "AWS::EC2::KeyPair::KeyName",
+      "Default" : "##KeyPairName##",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair.",
+      "AllowedPattern" : "[a-zA-Z0-9].*"
+    },
+    "VpcSecurityGroupId" : {
+      "Default" : "##VpcSecurityGroupIds|EC2|VPC Security Group##",
+      "Description" : "VPC Security Group",
+      "Type" : "String"
+    },
+    "VpcSubnetId" : {
+      "Default" : "##VpcSubnetId|private|VPC Subnet##",
+      "Description" : "VPC Subnet Id",
+      "Type" : "String"
+    },
+    "IAMProfile" : {
+      "Description" : "Instance IAM Profile Name",
+      "Type" : "String",
+      "Default" : "##IAMProfile|webrole1|IAM Instance Profile##"
+    },
+    "PuppetRole" : {
+      "Description" : "Puppet Role Name",
+      "Type" : "String",
+      "Default" : "##puppetrole|standard1|Puppet Role Tag##"
+    },
+    "Owner" : {
+      "Description" : "Deployment Owner",
+      "Type" : "String",
+      "Default" : "##owner##"
+    }
+  },
+  "Mappings" : {
+    "AWSRegionToAMI" : {
+      "us-east-1"      : { "AMIID" : "XXXXXXX" },
+      "us-west-1"      : { "AMIID" : "XXXXXXX" }
+    }
+  },
+  "Resources" : {
+    "EC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "EC2InstanceType"
+        },
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionToAMI", { "Ref" : "AWS::Region" }, "AMIID" ] },
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "DeleteOnTermination" : "true",
+              "VolumeType" : "gp2",
+              "VolumeSize" : {
+                "Ref" : "EC2Size"
+              }
+            }
+          }
+        ],
+        "NetworkInterfaces" : [{
+          "AssociatePublicIpAddress" : {
+                                          "Ref" : "AssignPublicIP"
+                                       },
+          "DeviceIndex"              : "0",
+          "DeleteOnTermination"      : "true",
+          "SubnetId"                 : {
+                                          "Ref" : "VpcSubnetId"
+                                       },
+          "GroupSet"                 : [{
+                                          "Ref" : "VpcSecurityGroupId"
+                                       }]
+        }],
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -v\n",
+          "rm -f /etc/yum.repos.d/pe_repo.repo\n",
+          "yum -y update openssl*\n",
+          "yum -y update openssh*\n",
+          "yum -y update aws-cli\n"
+        ]]}},
+        "Tags" : [
+          {
+            "Key" : "Name",
+            "Value" : {
+              "Ref" : "AWS::StackName"
+            }
+          },
+          {
+            "Key" : "Env",
+            "Value" : {
+              "Ref" : "Env"
+            }
+          },
+          {
+            "Key" : "Role",
+            "Value" : {
+              "Ref" : "PuppetRole"
+            }
+          },
+          {
+            "Key" : "Company",
+            "Value" : {
+              "Ref" : "Company"
+            }
+          }
+        ],
+        "IamInstanceProfile" : {
+          "Ref" : "IAMProfile"
+        }
+      }
+    }
+  },
+  "Outputs" : {
+    "Owner" : {
+      "Description" : "Deployment Owner",
+      "Value" : {
+        "Ref" : "Owner"
+      }
+    },
+    "InstanceId" : {
+      "Description" : "InstanceId",
+      "Value" : {
+        "Ref" : "EC2Instance"
+      }
+    }
+  }
+}
