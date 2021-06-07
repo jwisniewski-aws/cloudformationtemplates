@@ -1,0 +1,66 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS Inspector All-in-one. v1.0.0",
+  "Parameters" : {
+    "Company" : {
+      "Type" : "String",
+      "Description" : "Client company short name",
+      "Default" : "##Company|sandbox|Client company short name##"
+    },
+    "Env" : {
+      "Description" : "Environment string. EG: dev, test, production",
+      "Type" : "String",
+      "Default" : "##Env|dev|Environment##",
+      "AllowedValues" : [
+        "dev",
+        "test",
+        "production"
+      ]
+    },
+    "Inspectorrulespackagesarns" : {
+      "Description" : "Inspector Agent Packs ARNs",
+      "Type" : "String",
+      "Default" : "##Inspectorrulespackagesarns|common|Inspector Agent Packs##"
+    },
+    "Owner" : {
+      "Description" : "Deployment Owner",
+      "Type" : "String",
+      "Default" : "##owner##"
+    },
+    "Duration" : {
+      "Description" : "Inspection run duraction in seconds.",
+      "Type" : "Number",
+      "Default" : "##Duration|3600|Inspection run duraction in seconds.##"
+    }
+  },
+  "Resources" : {
+    "resourcegroup": {
+      "Type": "AWS::Inspector::ResourceGroup",
+      "Properties": {
+        "ResourceGroupTags": [
+          {
+            "Key": "Env",
+            "Value": { "Ref" : "Env" }
+          }
+        ]
+      }
+    },
+    "assessmenttarget": {
+      "Type": "AWS::Inspector::AssessmentTarget",
+      "Properties": {
+        "AssessmentTargetName" : { "Fn::Join" : [ "", [ { "Ref" : "Company" }, " ", { "Ref" : "Env" }, " AssessmentTargets" ]] },
+        "ResourceGroupArn" : { "Fn::GetAtt" : [ "resourcegroup", "Arn" ] }
+      }
+    },
+    "AssessmentTemplate": {
+      "Type": "AWS::Inspector::AssessmentTemplate",
+      "Properties": {
+        "AssessmentTargetArn": { "Fn::GetAtt" : [ "assessmenttarget", "Arn" ] },
+        "DurationInSeconds": { "Ref" : "Duration" },
+        "AssessmentTemplateName": { "Fn::Join" : [ "", [ { "Ref" : "Company" }, " ", { "Ref" : "Env" }, " Vulscan" ]] },
+        "RulesPackageArns": [ "%inspectorrulespackagesarns%" ]
+     }
+   }
+ }
+
+}
